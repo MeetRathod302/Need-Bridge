@@ -1,0 +1,2031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeedBridge AI — Resource Redistribution Engine</title>
+<style>
+  :root {
+    --slate-950: #020617;
+    --slate-900: #0f172a;
+    --slate-850: #131f35;
+    --slate-800: #1e293b;
+    --slate-750: #253044;
+    --slate-700: #334155;
+    --slate-600: #475569;
+    --slate-500: #64748b;
+    --slate-400: #94a3b8;
+    --slate-300: #cbd5e1;
+    --slate-200: #e2e8f0;
+    --slate-100: #f1f5f9;
+    --cyan-400: #22d3ee;
+    --cyan-500: #06b6d4;
+    --cyan-600: #0891b2;
+    --emerald-400: #34d399;
+    --emerald-500: #10b981;
+    --amber-400: #fbbf24;
+    --amber-500: #f59e0b;
+    --rose-400: #fb7185;
+    --rose-500: #f43f5e;
+    --violet-400: #a78bfa;
+    --violet-500: #8b5cf6;
+    --font-system: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out-circ: cubic-bezier(0.785, 0.135, 0.15, 0.86);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--slate-950);
+    color: var(--slate-300);
+    font-family: var(--font-system);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  ::selection { background: rgba(34, 211, 238, 0.2); }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--slate-900); }
+  ::-webkit-scrollbar-thumb { background: var(--slate-700); border-radius: 3px; }
+
+  /* --- GRID BACKGROUND --- */
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* --- TOP STATUS BAR --- */
+  .status-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(2, 6, 23, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(34, 211, 238, 0.12);
+    padding: 0 2rem;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .status-bar-brand {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cyan-400);
+    margin-right: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .brand-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--emerald-400);
+    box-shadow: 0 0 8px var(--emerald-400);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .ticker-strip {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    font-size: 11.5px;
+    font-family: var(--font-mono);
+  }
+
+  .ticker-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--slate-400);
+  }
+
+  .ticker-val {
+    color: var(--cyan-400);
+    font-weight: 600;
+  }
+
+  .ticker-val.green { color: var(--emerald-400); }
+  .ticker-val.amber { color: var(--amber-400); }
+
+  .nav-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 2rem;
+  }
+
+  .nav-btn {
+    padding: 5px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s var(--ease-out-expo);
+    border: none;
+    letter-spacing: 0.02em;
+  }
+
+  .nav-btn.ghost {
+    background: transparent;
+    color: var(--slate-400);
+    border: 1px solid var(--slate-700);
+  }
+
+  .nav-btn.ghost:hover { color: var(--slate-200); border-color: var(--slate-500); }
+
+  .nav-btn.primary {
+    background: var(--cyan-500);
+    color: var(--slate-950);
+    font-weight: 600;
+  }
+
+  .nav-btn.primary:hover { background: var(--cyan-400); transform: translateY(-1px); }
+
+  /* --- MAIN LAYOUT --- */
+  .app-shell {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: calc(100vh - 48px);
+  }
+
+  /* --- HERO SPLIT --- */
+  .hero-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    min-height: 100vh;
+    padding-top: 0;
+  }
+
+  .hero-left {
+    padding: 5rem 3rem 4rem 4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-right: 1px solid rgba(34, 211, 238, 0.08);
+  }
+
+  .hero-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cyan-400);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--cyan-400);
+  }
+
+  .hero-title {
+    font-size: clamp(2.4rem, 4vw, 3.6rem);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+    color: #fff;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero-title .accent {
+    background: linear-gradient(135deg, var(--cyan-400), var(--emerald-400));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-desc {
+    font-size: 16px;
+    color: var(--slate-400);
+    line-height: 1.7;
+    max-width: 480px;
+    margin-bottom: 2.5rem;
+  }
+
+  .cta-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 3rem;
+  }
+
+  .cta-primary {
+    padding: 13px 28px;
+    background: var(--cyan-500);
+    color: var(--slate-950);
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.22s var(--ease-spring);
+    letter-spacing: 0.01em;
+  }
+
+  .cta-primary:hover { background: var(--cyan-400); transform: translateY(-2px) scale(1.02); }
+  .cta-primary:active { transform: translateY(0) scale(0.99); }
+
+  .cta-secondary {
+    padding: 13px 28px;
+    background: transparent;
+    color: var(--slate-300);
+    border: 1px solid var(--slate-700);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.22s var(--ease-out-expo);
+  }
+
+  .cta-secondary:hover { border-color: var(--slate-500); color: #fff; background: rgba(255,255,255,0.04); }
+
+  .impact-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .stat-cell {
+    background: var(--slate-900);
+    padding: 1.25rem 1rem;
+    text-align: center;
+  }
+
+  .stat-number {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--cyan-400);
+    font-family: var(--font-mono);
+    display: block;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* --- HERO RIGHT: Magic Input Zone --- */
+  .hero-right {
+    padding: 4rem 3.5rem 4rem 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.6);
+  }
+
+  .input-zone-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .input-zone-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 6px;
+  }
+
+  .input-zone-sub {
+    font-size: 13px;
+    color: var(--slate-500);
+  }
+
+  .role-tabs {
+    display: flex;
+    gap: 0;
+    background: var(--slate-900);
+    border: 1px solid var(--slate-800);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 1.5rem;
+    width: fit-content;
+  }
+
+  .role-tab {
+    padding: 7px 18px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--slate-500);
+    transition: all 0.16s ease;
+    letter-spacing: 0.01em;
+  }
+
+  .role-tab.active {
+    background: var(--slate-800);
+    color: var(--slate-200);
+  }
+
+  .role-tab:hover:not(.active) { color: var(--slate-300); }
+
+  .magic-input-wrapper {
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .magic-input {
+    width: 100%;
+    background: var(--slate-900);
+    border: 1.5px solid var(--slate-800);
+    border-radius: 10px;
+    padding: 14px 16px 14px 16px;
+    color: var(--slate-200);
+    font-size: 14.5px;
+    font-family: var(--font-system);
+    line-height: 1.6;
+    resize: none;
+    min-height: 140px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+  }
+
+  .magic-input:focus {
+    border-color: var(--cyan-500);
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.12);
+  }
+
+  .magic-input::placeholder { color: var(--slate-600); }
+
+  .input-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+
+  .location-input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .mini-input {
+    background: var(--slate-900);
+    border: 1px solid var(--slate-800);
+    border-radius: 7px;
+    padding: 9px 12px;
+    color: var(--slate-300);
+    font-size: 13px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.15s ease;
+  }
+
+  .mini-input:focus { border-color: var(--cyan-600); }
+  .mini-input::placeholder { color: var(--slate-600); }
+
+  .submit-btn {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--cyan-600), var(--cyan-500));
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.22s var(--ease-spring);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(6, 182, 212, 0.3); }
+  .submit-btn:active { transform: translateY(0); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--violet-400);
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 4px;
+    padding: 2px 7px;
+  }
+
+  /* --- PROCESSING BAR --- */
+  .processing-zone {
+    display: none;
+    margin-top: 16px;
+    background: var(--slate-900);
+    border: 1px solid var(--slate-800);
+    border-radius: 10px;
+    padding: 16px;
+    animation: fade-in 0.3s var(--ease-out-expo);
+  }
+
+  .processing-zone.active { display: block; }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .proc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+
+  .proc-stage {
+    color: var(--cyan-400);
+    font-weight: 600;
+  }
+
+  .proc-pct {
+    color: var(--slate-400);
+  }
+
+  .proc-bar-track {
+    height: 3px;
+    background: var(--slate-800);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .proc-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan-600), var(--cyan-400), var(--emerald-400));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.4s var(--ease-in-out-circ);
+  }
+
+  .proc-steps {
+    display: flex;
+    gap: 0;
+    position: relative;
+  }
+
+  .proc-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--slate-600);
+    transition: color 0.3s ease;
+    position: relative;
+  }
+
+  .proc-step.done { color: var(--emerald-400); }
+  .proc-step.active { color: var(--cyan-400); }
+
+  .proc-step-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--slate-700);
+    transition: all 0.3s ease;
+  }
+
+  .proc-step.done .proc-step-dot { background: var(--emerald-400); box-shadow: 0 0 6px var(--emerald-400); }
+  .proc-step.active .proc-step-dot { background: var(--cyan-400); box-shadow: 0 0 6px var(--cyan-400); animation: pulse-dot 1s ease infinite; }
+
+  /* --- EXTRACTED PARAMS CARD --- */
+  .extracted-card {
+    display: none;
+    margin-top: 12px;
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+    padding: 14px;
+    animation: fade-in 0.4s var(--ease-out-expo);
+  }
+
+  .extracted-card.active { display: block; }
+
+  .extracted-header {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--emerald-400);
+    margin-bottom: 10px;
+  }
+
+  .param-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .param-item {
+    background: var(--slate-900);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+
+  .param-key {
+    font-size: 10px;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+    font-family: var(--font-mono);
+  }
+
+  .param-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate-200);
+  }
+
+  .urgency-bar {
+    display: flex;
+    gap: 3px;
+    margin-top: 2px;
+  }
+
+  .urgency-pip {
+    width: 12px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--slate-800);
+  }
+
+  .urgency-pip.lit { background: var(--rose-400); }
+
+  /* --- MAIN DASHBOARD SECTION --- */
+  .dashboard-section {
+    padding: 4rem;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 2rem;
+    background: var(--slate-950);
+  }
+
+  /* --- RADAR MATCH GRID --- */
+  .radar-panel {
+    border: 1px solid var(--slate-800);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--slate-900);
+  }
+
+  .panel-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--slate-800);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--slate-200);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(34, 211, 238, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+  }
+
+  .panel-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .filter-chip {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--slate-700);
+    background: transparent;
+    color: var(--slate-400);
+    transition: all 0.15s ease;
+  }
+
+  .filter-chip.active {
+    background: var(--cyan-500);
+    border-color: var(--cyan-500);
+    color: var(--slate-950);
+    font-weight: 700;
+  }
+
+  .filter-chip:hover:not(.active) { border-color: var(--slate-500); color: var(--slate-300); }
+
+  .match-grid {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 520px;
+    overflow-y: auto;
+  }
+
+  .match-card {
+    background: var(--slate-850, #131f35);
+    border: 1px solid var(--slate-800);
+    border-radius: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out-expo);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .match-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: transparent;
+    transition: background 0.2s ease;
+  }
+
+  .match-card:hover { border-color: var(--slate-700); transform: translateX(2px); }
+  .match-card.high-match::before { background: var(--emerald-400); }
+  .match-card.medium-match::before { background: var(--amber-400); }
+  .match-card.processing::before { background: var(--cyan-400); }
+
+  .match-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .match-org-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--slate-200);
+    margin-bottom: 2px;
+  }
+
+  .match-org-type {
+    font-size: 11px;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .match-score-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .score-high {
+    background: rgba(52, 211, 153, 0.15);
+    color: var(--emerald-400);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+  }
+
+  .score-mid {
+    background: rgba(251, 191, 36, 0.12);
+    color: var(--amber-400);
+    border: 1px solid rgba(251, 191, 36, 0.25);
+  }
+
+  .score-proc {
+    background: rgba(34, 211, 238, 0.1);
+    color: var(--cyan-400);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    animation: pulse-opacity 1.5s ease infinite;
+  }
+
+  @keyframes pulse-opacity {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .match-item-info {
+    font-size: 13px;
+    color: var(--slate-400);
+    margin-bottom: 8px;
+  }
+
+  .match-item-info strong {
+    color: var(--slate-300);
+    font-weight: 500;
+  }
+
+  .match-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .match-distance {
+    font-size: 11px;
+    color: var(--slate-600);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+  }
+
+  .match-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .action-btn {
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+    letter-spacing: 0.01em;
+  }
+
+  .action-btn.connect {
+    background: var(--cyan-500);
+    color: var(--slate-950);
+  }
+
+  .action-btn.connect:hover { background: var(--cyan-400); }
+
+  .action-btn.dismiss {
+    background: var(--slate-800);
+    color: var(--slate-400);
+    border: 1px solid var(--slate-700);
+  }
+
+  .action-btn.dismiss:hover { color: var(--rose-400); border-color: var(--rose-500); }
+
+  /* --- SIDEBAR: MESSAGING WORKSPACE --- */
+  .sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .msg-workspace {
+    border: 1px solid var(--slate-800);
+    border-radius: 12px;
+    background: var(--slate-900);
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .msg-thread {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 340px;
+  }
+
+  .msg-bubble {
+    max-width: 85%;
+    padding: 9px 13px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    position: relative;
+  }
+
+  .msg-bubble.outbound {
+    background: rgba(6, 182, 212, 0.12);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    color: var(--slate-300);
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+  }
+
+  .msg-bubble.inbound {
+    background: var(--slate-800);
+    color: var(--slate-300);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+  }
+
+  .msg-meta {
+    font-size: 10px;
+    color: var(--slate-600);
+    margin-top: 3px;
+    font-family: var(--font-mono);
+  }
+
+  .msg-input-row {
+    padding: 10px;
+    border-top: 1px solid var(--slate-800);
+    display: flex;
+    gap: 8px;
+  }
+
+  .msg-input {
+    flex: 1;
+    background: var(--slate-800);
+    border: 1px solid var(--slate-700);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--slate-200);
+    font-size: 13px;
+    outline: none;
+    font-family: var(--font-system);
+  }
+
+  .msg-input:focus { border-color: var(--cyan-600); }
+
+  .msg-send-btn {
+    padding: 8px 16px;
+    background: var(--cyan-500);
+    border: none;
+    border-radius: 6px;
+    color: var(--slate-950);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .msg-send-btn:hover { background: var(--cyan-400); }
+
+  .template-picker {
+    border: 1px solid var(--slate-800);
+    border-radius: 12px;
+    background: var(--slate-900);
+    overflow: hidden;
+  }
+
+  .template-list {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .template-item {
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--slate-400);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid transparent;
+  }
+
+  .template-item:hover {
+    background: var(--slate-800);
+    color: var(--slate-300);
+    border-color: var(--slate-700);
+  }
+
+  .template-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: rgba(34, 211, 238, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  /* --- NOTIFICATION TOAST --- */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .toast {
+    background: var(--slate-900);
+    border: 1px solid var(--slate-800);
+    border-radius: 10px;
+    padding: 12px 16px;
+    max-width: 320px;
+    font-size: 13px;
+    color: var(--slate-300);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    pointer-events: all;
+    animation: slide-in-right 0.38s var(--ease-out-expo);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(100%); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .toast.exiting {
+    animation: slide-out-right 0.28s var(--ease-in-out-circ) forwards;
+  }
+
+  @keyframes slide-out-right {
+    to { opacity: 0; transform: translateX(110%); }
+  }
+
+  .toast-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .toast-icon.match { background: rgba(52, 211, 153, 0.15); color: var(--emerald-400); }
+  .toast-icon.info { background: rgba(34, 211, 238, 0.1); color: var(--cyan-400); }
+  .toast-icon.warn { background: rgba(251, 191, 36, 0.12); color: var(--amber-400); }
+
+  .toast-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate-200);
+    margin-bottom: 2px;
+  }
+
+  .toast-body {
+    font-size: 12px;
+    color: var(--slate-500);
+  }
+
+  /* --- ACTIVE LISTINGS SECTION --- */
+  .listings-section {
+    padding: 0 4rem 4rem;
+    background: var(--slate-950);
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--slate-900);
+  }
+
+  .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--slate-200);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-count {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--cyan-400);
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.15);
+    border-radius: 20px;
+    padding: 2px 10px;
+  }
+
+  .listings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  .listing-card {
+    background: var(--slate-900);
+    border: 1px solid var(--slate-800);
+    border-radius: 10px;
+    padding: 1.125rem;
+    transition: all 0.2s var(--ease-out-expo);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .listing-card:hover {
+    border-color: var(--slate-700);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+
+  .listing-type-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  .pill-have {
+    background: rgba(52, 211, 153, 0.1);
+    color: var(--emerald-400);
+    border: 1px solid rgba(52, 211, 153, 0.25);
+  }
+
+  .pill-need {
+    background: rgba(251, 191, 36, 0.1);
+    color: var(--amber-400);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+  }
+
+  .listing-item-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .listing-qty {
+    font-size: 13px;
+    color: var(--slate-500);
+    font-family: var(--font-mono);
+    margin-bottom: 10px;
+  }
+
+  .listing-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid var(--slate-800);
+  }
+
+  .listing-org {
+    font-size: 12px;
+    color: var(--slate-500);
+  }
+
+  .listing-dist {
+    font-size: 11px;
+    color: var(--slate-600);
+    font-family: var(--font-mono);
+  }
+
+  .urgency-dot {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .urgency-dot.critical { background: var(--rose-400); box-shadow: 0 0 8px var(--rose-400); animation: pulse-dot 1s ease infinite; }
+  .urgency-dot.high { background: var(--amber-400); }
+  .urgency-dot.normal { background: var(--emerald-400); }
+
+  /* --- RESPONSIVE --- */
+  @media (max-width: 1100px) {
+    .hero-section { grid-template-columns: 1fr; }
+    .hero-left { border-right: none; border-bottom: 1px solid rgba(34, 211, 238, 0.08); padding: 3rem 2rem; }
+    .hero-right { padding: 2.5rem 2rem; }
+    .dashboard-section { grid-template-columns: 1fr; padding: 2rem; }
+    .listings-section { padding: 0 2rem 2rem; }
+  }
+
+  @media (max-width: 700px) {
+    .ticker-strip { display: none; }
+    .status-bar { padding: 0 1rem; }
+    .impact-stats { grid-template-columns: 1fr 1fr 1fr; }
+    .hero-title { font-size: 2rem; }
+    .hero-left { padding: 2rem 1.25rem; }
+    .hero-right { padding: 1.5rem 1.25rem; }
+    .location-input-row { grid-template-columns: 1fr; }
+    .param-grid { grid-template-columns: 1fr 1fr; }
+    .dashboard-section, .listings-section { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<!-- ===== STATUS BAR ===== -->
+<header class="status-bar">
+  <div class="status-bar-brand">
+    <span class="brand-dot"></span>
+    NeedBridge AI
+  </div>
+
+  <div class="ticker-strip">
+    <div class="ticker-item">
+      <span>Active Listings</span>
+      <span class="ticker-val" id="ticker-listings">1,247</span>
+    </div>
+    <div class="ticker-item">
+      <span>Matched Today</span>
+      <span class="ticker-val green" id="ticker-matched">89</span>
+    </div>
+    <div class="ticker-item">
+      <span>Est. Value Bridged</span>
+      <span class="ticker-val amber" id="ticker-value">₹14.2L</span>
+    </div>
+    <div class="ticker-item">
+      <span>Orgs Online</span>
+      <span class="ticker-val" id="ticker-orgs">312</span>
+    </div>
+    <div class="ticker-item">
+      <span>AI Engine</span>
+      <span class="ticker-val green">● LIVE</span>
+    </div>
+  </div>
+
+  <div class="nav-actions">
+    <button class="nav-btn ghost" onclick="scrollTo(0, document.body.scrollHeight)">Dashboard</button>
+    <button class="nav-btn primary" onclick="document.querySelector('.magic-input').focus()">Post Listing</button>
+  </div>
+</header>
+
+<!-- ===== APP SHELL ===== -->
+<div class="app-shell">
+
+  <!-- ===== HERO SPLIT ===== -->
+  <section class="hero-section">
+
+    <!-- LEFT: Brand + Stats -->
+    <div class="hero-left">
+      <p class="hero-eyebrow">Resource Redistribution Engine</p>
+      <h1 class="hero-title">
+        Bridge the gap between<br>
+        <span class="accent">surplus and scarcity</span>
+      </h1>
+      <p class="hero-desc">
+        An AI-powered supply chain platform for NGOs, hospitals, and schools. Type anything in plain language — our engine extracts, matches, and coordinates automatically.
+      </p>
+      <div class="cta-group">
+        <button class="cta-primary" onclick="document.querySelector('.magic-input').focus(); document.querySelector('.hero-right').scrollIntoView({behavior:'smooth'})">
+          Post a Listing
+        </button>
+        <button class="cta-secondary" onclick="document.querySelector('.listings-section').scrollIntoView({behavior:'smooth'})">
+          Browse Active Needs
+        </button>
+      </div>
+      <div class="impact-stats">
+        <div class="stat-cell">
+          <span class="stat-number" id="hero-listings">1,247</span>
+          <span class="stat-label">Active Listings</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-number" id="hero-matched">89</span>
+          <span class="stat-label">Matched Today</span>
+        </div>
+        <div class="stat-cell">
+          <span class="stat-number" id="hero-orgs">312</span>
+          <span class="stat-label">Verified Orgs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Magic Input -->
+    <div class="hero-right">
+      <div class="input-zone-header">
+        <h2 class="input-zone-title">Magic AI Input</h2>
+        <p class="input-zone-sub">Describe your need or surplus in any language. No forms. No categories.</p>
+      </div>
+
+      <div class="role-tabs">
+        <button class="role-tab active" data-role="NGO">NGO</button>
+        <button class="role-tab" data-role="Hospital">Hospital</button>
+        <button class="role-tab" data-role="School">School</button>
+        <button class="role-tab" data-role="Donor">Donor / Corp</button>
+      </div>
+
+      <div class="input-meta">
+        <span class="ai-badge">⚡ Groq AI</span>
+        <span style="font-size:11.5px;color:var(--slate-600)">Supports Hindi, Marathi, English, Tamil, Telugu</span>
+      </div>
+
+      <div class="magic-input-wrapper">
+        <textarea
+          class="magic-input"
+          id="magicInput"
+          placeholder="e.g. 'We urgently need 50 blankets for flood victims in Dharavi, our stock is completely empty' or 'हमारे पास 200 किताबें अतिरिक्त हैं जो स्कूल के बच्चों के लिए दे सकते हैं'"
+        ></textarea>
+      </div>
+
+      <div class="location-input-row">
+        <input class="mini-input" id="latInput" type="number" placeholder="Latitude (e.g. 19.0760)" step="0.0001" />
+        <input class="mini-input" id="lngInput" type="number" placeholder="Longitude (e.g. 72.8777)" step="0.0001" />
+      </div>
+
+      <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">
+        <span id="submitBtnText">⚡ Analyse & Match with AI</span>
+      </button>
+
+      <!-- Processing Bar -->
+      <div class="processing-zone" id="processingZone">
+        <div class="proc-header">
+          <span class="proc-stage" id="procStage">Routing to Groq AI...</span>
+          <span class="proc-pct" id="procPct">0%</span>
+        </div>
+        <div class="proc-bar-track">
+          <div class="proc-bar-fill" id="procBarFill"></div>
+        </div>
+        <div class="proc-steps">
+          <div class="proc-step" id="step-parse" data-label="Parse">
+            <div class="proc-step-dot"></div>
+            <span>Parse</span>
+          </div>
+          <div class="proc-step" id="step-extract" data-label="Extract">
+            <div class="proc-step-dot"></div>
+            <span>Extract</span>
+          </div>
+          <div class="proc-step" id="step-geo" data-label="Geolocate">
+            <div class="proc-step-dot"></div>
+            <span>Geolocate</span>
+          </div>
+          <div class="proc-step" id="step-match" data-label="Match">
+            <div class="proc-step-dot"></div>
+            <span>Match</span>
+          </div>
+          <div class="proc-step" id="step-notify" data-label="Notify">
+            <div class="proc-step-dot"></div>
+            <span>Notify</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extracted Parameters Card -->
+      <div class="extracted-card" id="extractedCard">
+        <div class="extracted-header">✓ AI Extracted Parameters</div>
+        <div class="param-grid" id="paramGrid"></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===== DASHBOARD SECTION ===== -->
+  <section class="dashboard-section">
+
+    <!-- MATCH RADAR GRID -->
+    <div class="radar-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <div class="panel-title-icon">📡</div>
+          AI Match Radar
+        </div>
+        <div class="panel-controls">
+          <button class="filter-chip active" data-filter="all" onclick="filterMatches('all', this)">All</button>
+          <button class="filter-chip" data-filter="high" onclick="filterMatches('high', this)">High Match</button>
+          <button class="filter-chip" data-filter="NGO" onclick="filterMatches('NGO', this)">NGO</button>
+          <button class="filter-chip" data-filter="Hospital" onclick="filterMatches('Hospital', this)">Hospital</button>
+          <button class="filter-chip" data-filter="School" onclick="filterMatches('School', this)">School</button>
+        </div>
+      </div>
+      <div class="match-grid" id="matchGrid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar-panel">
+
+      <!-- Messaging Workspace -->
+      <div class="msg-workspace">
+        <div class="panel-header">
+          <div class="panel-title">
+            <div class="panel-title-icon">💬</div>
+            Coordination Workspace
+          </div>
+          <select class="mini-input" id="activeContact" style="width:auto;font-size:11.5px;padding:4px 8px;border-radius:5px;background:var(--slate-800);color:var(--slate-300);border:1px solid var(--slate-700)">
+            <option>Select match...</option>
+            <option>Dharavi Relief Society</option>
+            <option>City Hospital Trust</option>
+            <option>Pawar Public School</option>
+          </select>
+        </div>
+        <div class="msg-thread" id="msgThread">
+          <div class="msg-bubble inbound">
+            Hello, we saw your listing on NeedBridge. We have the blankets you need available immediately.
+            <div class="msg-meta">Dharavi Relief Society · 2h ago</div>
+          </div>
+          <div class="msg-bubble outbound">
+            That's great news. Can you confirm quantity and your pickup address?
+            <div class="msg-meta">You · 1h 45m ago</div>
+          </div>
+          <div class="msg-bubble inbound">
+            We have 60 blankets, all in good condition. Address: 14B Relief Colony, Sion. Available 9am–5pm on weekdays.
+            <div class="msg-meta">Dharavi Relief Society · 1h 30m ago</div>
+          </div>
+        </div>
+        <div class="msg-input-row">
+          <input class="msg-input" id="msgInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMessage()" />
+          <button class="msg-send-btn" onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+
+      <!-- AI Template Picker -->
+      <div class="template-picker">
+        <div class="panel-header" style="padding:1rem 1.25rem 0.75rem">
+          <div class="panel-title" style="font-size:13px">
+            <div class="panel-title-icon" style="width:22px;height:22px;font-size:11px">🤖</div>
+            AI Logistics Templates
+          </div>
+        </div>
+        <div class="template-list" id="templateList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== ACTIVE LISTINGS ===== -->
+  <section class="listings-section">
+    <div class="section-header">
+      <div class="section-title">
+        Active Listings
+        <span class="section-count" id="listingsCount">24 listings</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="filter-chip active" onclick="filterListings('all',this)" data-filter="all">All</button>
+        <button class="filter-chip" onclick="filterListings('HAVE',this)" data-filter="HAVE">HAVE</button>
+        <button class="filter-chip" onclick="filterListings('NEED',this)" data-filter="NEED">NEED</button>
+      </div>
+    </div>
+    <div class="listings-grid" id="listingsGrid">
+      <!-- Populated by JS -->
+    </div>
+  </section>
+
+</div>
+
+<!-- ===== TOAST CONTAINER ===== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ===== SERVICE WORKER REGISTRATION ===== -->
+<script>
+// Service Worker for Web Push — registered inline to avoid external file dependency
+const SW_SCRIPT = `
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : {};
+  self.registration.showNotification(data.title || 'NeedBridge AI', {
+    body: data.body || 'A new resource match has been found.',
+    icon: '/icon-192.png',
+    badge: '/badge-72.png',
+    tag: 'needbridge-match',
+    requireInteraction: data.urgent || false,
+    data: { url: data.url || '/' }
+  });
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.openWindow(e.notification.data.url));
+});
+
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+`;
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const blob = new Blob([SW_SCRIPT], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+    const reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+    window.__swRegistration = reg;
+  } catch (_) {
+    // SW registration may fail in some browser contexts; app continues without push
+  }
+}
+
+registerServiceWorker();
+</script>
+
+<script>
+// ============================================================
+//   CORE DATA STORE
+// ============================================================
+
+const LISTINGS_SEED = [
+  { id: 'l1', type: 'HAVE', org: 'Rotary Club Bandra', orgType: 'NGO', item: 'School Textbooks (Std 5-7)', category: 'education', qty: '200 books', condition: 'Good', lat: 19.0596, lng: 72.8295, urgency: 2, dist: null },
+  { id: 'l2', type: 'NEED', org: 'Dharavi Municipal School', orgType: 'School', item: 'Monsoon Raincoats (Children)', category: 'clothing', qty: '80 units', condition: null, lat: 19.0405, lng: 72.8541, urgency: 4, dist: null },
+  { id: 'l3', type: 'HAVE', org: 'Apollo Clinic Andheri', orgType: 'Hospital', item: 'Expired Medical Equipment (Wheelchairs)', category: 'medical', qty: '12 units', condition: 'Used - Good', lat: 19.1136, lng: 72.8697, urgency: 1, dist: null },
+  { id: 'l4', type: 'NEED', org: 'Sparsh NGO', orgType: 'NGO', item: 'Blankets for Flood Relief', category: 'shelter', qty: '150 blankets', condition: null, lat: 19.0176, lng: 72.8562, urgency: 5, dist: null },
+  { id: 'l5', type: 'HAVE', org: 'Tata Motors CSR', orgType: 'Donor', item: 'Office Chairs', category: 'furniture', qty: '35 chairs', condition: 'Excellent', lat: 18.9548, lng: 72.8347, urgency: 1, dist: null },
+  { id: 'l6', type: 'NEED', org: 'Sion Hospital OPD', orgType: 'Hospital', item: 'Paracetamol 500mg Strips', category: 'medicine', qty: '5000 strips', condition: null, lat: 19.0382, lng: 72.8646, urgency: 5, dist: null },
+  { id: 'l7', type: 'HAVE', org: 'Nestlé India Foundation', orgType: 'Donor', item: 'Packaged Dry Ration Kits', category: 'food', qty: '300 kits', condition: 'Sealed', lat: 19.1000, lng: 72.8700, urgency: 3, dist: null },
+  { id: 'l8', type: 'NEED', org: 'Kurla Children Home', orgType: 'NGO', item: 'Children Notebooks A4', category: 'education', qty: '500 units', condition: null, lat: 19.0728, lng: 72.8826, urgency: 3, dist: null },
+  { id: 'l9', type: 'HAVE', org: 'Parel Medical College', orgType: 'Hospital', item: 'Disposable Surgical Gloves (L)', category: 'medical', qty: '10,000 pairs', condition: 'New', lat: 18.9930, lng: 72.8414, urgency: 2, dist: null },
+  { id: 'l10', type: 'NEED', org: 'Azad Nagar Shelter', orgType: 'NGO', item: 'Portable Water Filters', category: 'sanitation', qty: '20 units', condition: null, lat: 19.0800, lng: 72.8400, urgency: 4, dist: null },
+  { id: 'l11', type: 'HAVE', org: 'Hindustan Unilever CSR', orgType: 'Donor', item: 'Hygiene Kit (Soap + Sanitizer)', category: 'sanitation', qty: '250 kits', condition: 'New', lat: 19.0590, lng: 72.8281, urgency: 2, dist: null },
+  { id: 'l12', type: 'NEED', org: 'Ghatkopar Relief Camp', orgType: 'NGO', item: 'Tarpaulin Sheets 12x15 ft', category: 'shelter', qty: '60 sheets', condition: null, lat: 19.0859, lng: 72.9082, urgency: 5, dist: null },
+];
+
+const MATCH_SEED = [
+  { id: 'm1', org: 'Dharavi Relief Society', orgType: 'NGO', score: 94, item: '150 blankets', need: 'Flood relief shelter', dist: '2.4 km', status: 'high', lat: 19.0405, lng: 72.8541 },
+  { id: 'm2', org: 'Sparsh Foundation', orgType: 'NGO', score: 87, item: '80 blankets', need: 'Winter drive', dist: '4.1 km', status: 'high', lat: 19.0380, lng: 72.8600 },
+  { id: 'm3', org: 'City General Hospital', orgType: 'Hospital', score: 72, item: '50 blankets', need: 'OPD patient recovery', dist: '6.8 km', status: 'medium', lat: 19.0450, lng: 72.8700 },
+  { id: 'm4', org: 'Pawar Public School', orgType: 'School', score: 61, item: '30 blankets', need: 'Night shelter annex', dist: '8.3 km', status: 'medium', lat: 19.0600, lng: 72.8800 },
+  { id: 'm5', org: 'Sion Municipal Trust', orgType: 'NGO', score: null, item: 'Evaluating...', need: 'Category analysis in progress', dist: '3.2 km', status: 'processing', lat: 19.0382, lng: 72.8646 },
+];
+
+const TEMPLATES = [
+  { icon: '📦', label: 'Pickup Coordination', text: 'Hi, this is [ORG_NAME] confirming the resource pickup. We can collect [ITEM] on [DATE] between [TIME]. Please confirm the contact person and address. Thank you for supporting this cause.' },
+  { icon: '🚚', label: 'Logistics Handoff', text: 'Resource handoff confirmed for [ITEM] — Quantity: [QTY]. Our volunteer will be present at [LOCATION] on [DATE]. Please ensure items are labelled and packed for transit.' },
+  { icon: '✅', label: 'Match Acceptance', text: 'We formally accept the match for [ITEM]. Our organisation is verified on NeedBridge (ID: [ORG_ID]). Awaiting your confirmation to proceed.' },
+  { icon: '⚠️', label: 'Urgent Escalation', text: 'URGENT: We require [ITEM] immediately due to [REASON]. This is a critical shortage affecting [N] individuals. Can you expedite delivery? Willing to arrange pickup at short notice.' },
+  { icon: '🙏', label: 'Fulfillment Thanks', text: 'Thank you for fulfilling our request for [ITEM]. The resources have been received and distributed to [BENEFICIARIES]. Impact report to follow within 7 days.' },
+  { icon: '📋', label: 'Condition Verification', text: 'Could you confirm the condition and packing status of [ITEM]? We need to ensure they meet the minimum standards before collection. A photo confirmation would be very helpful.' },
+];
+
+// ============================================================
+//   HAVERSINE FORMULA — distance in km
+// ============================================================
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng/2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ============================================================
+//   RENDER: MATCH GRID
+// ============================================================
+
+let currentMatchFilter = 'all';
+
+function renderMatchGrid(filter = 'all') {
+  currentMatchFilter = filter;
+  const container = document.getElementById('matchGrid');
+  let items = [...MATCH_SEED];
+
+  if (filter === 'high') items = items.filter(m => m.status === 'high');
+  if (['NGO', 'Hospital', 'School'].includes(filter)) items = items.filter(m => m.orgType === filter);
+
+  container.innerHTML = items.map(m => {
+    const statusClass = m.status === 'high' ? 'high-match' : m.status === 'medium' ? 'medium-match' : 'processing';
+    const badgeClass = m.status === 'high' ? 'score-high' : m.status === 'medium' ? 'score-mid' : 'score-proc';
+    const scoreText = m.score !== null ? `${m.score}% match` : 'Scanning...';
+
+    return `
+    <div class="match-card ${statusClass}" onclick="openMatchDetail('${m.id}')">
+      <div class="match-card-top">
+        <div>
+          <div class="match-org-name">${m.org}</div>
+          <div class="match-org-type">${m.orgType}</div>
+        </div>
+        <span class="match-score-badge ${badgeClass}">${scoreText}</span>
+      </div>
+      <div class="match-item-info">
+        Requesting <strong>${m.item}</strong> — ${m.need}
+      </div>
+      <div class="match-card-footer">
+        <span class="match-distance">📍 ${m.dist}</span>
+        <div class="match-actions">
+          ${m.score !== null ? `<button class="action-btn dismiss" onclick="event.stopPropagation();dismissMatch('${m.id}')">Skip</button>
+          <button class="action-btn connect" onclick="event.stopPropagation();connectMatch('${m.id}','${m.org}')">Connect</button>` : `<button class="action-btn dismiss" style="opacity:0.5;cursor:default">Processing...</button>`}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (!items.length) {
+    container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--slate-600);font-size:13px">No matches for this filter.</div>';
+  }
+}
+
+function filterMatches(filter, el) {
+  document.querySelectorAll('#matchGrid + .panel-controls .filter-chip, .radar-panel .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderMatchGrid(filter);
+}
+
+function openMatchDetail(id) {
+  const m = MATCH_SEED.find(x => x.id === id);
+  if (!m) return;
+  showToast('info', `📡 ${m.org}`, `Match score: ${m.score ?? 'evaluating'}% · ${m.dist} away. Click Connect to initiate coordination.`);
+}
+
+function connectMatch(id, orgName) {
+  document.getElementById('activeContact').innerHTML = `<option>${orgName}</option>`;
+  showToast('match', `✓ Connected`, `Coordination channel opened with ${orgName}. Use the AI templates to draft your first message.`);
+
+  // Simulate filling message thread
+  const thread = document.getElementById('msgThread');
+  const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const systemMsg = document.createElement('div');
+  systemMsg.className = 'msg-bubble inbound';
+  systemMsg.innerHTML = `Hi! We saw your listing on NeedBridge AI. We can fulfil your request. When would you like to arrange collection?<div class="msg-meta">${orgName} · just now</div>`;
+  thread.appendChild(systemMsg);
+  thread.scrollTop = thread.scrollHeight;
+
+  triggerPushNotification(`✓ Match Confirmed`, `${orgName} accepted your resource request. Coordination started.`);
+}
+
+function dismissMatch(id) {
+  const idx = MATCH_SEED.findIndex(m => m.id === id);
+  if (idx > -1) {
+    MATCH_SEED.splice(idx, 1);
+    renderMatchGrid(currentMatchFilter);
+    showToast('info', 'Match dismissed', 'This organisation won\'t appear in your radar again.');
+  }
+}
+
+// ============================================================
+//   RENDER: LISTINGS GRID
+// ============================================================
+
+let currentListingFilter = 'all';
+let userLat = 19.0760, userLng = 72.8777;
+
+function renderListings(filter = 'all') {
+  currentListingFilter = filter;
+  const container = document.getElementById('listingsGrid');
+  let items = [...LISTINGS_SEED];
+  if (filter === 'HAVE') items = items.filter(l => l.type === 'HAVE');
+  if (filter === 'NEED') items = items.filter(l => l.type === 'NEED');
+
+  items.forEach(l => {
+    l.dist = haversine(userLat, userLng, l.lat, l.lng).toFixed(1);
+  });
+
+  items.sort((a, b) => parseFloat(a.dist) - parseFloat(b.dist));
+
+  document.getElementById('listingsCount').textContent = `${items.length} listings`;
+
+  const urgencyClass = u => u >= 5 ? 'critical' : u >= 3 ? 'high' : 'normal';
+
+  container.innerHTML = items.map(l => `
+    <div class="listing-card" onclick="selectListing('${l.id}')">
+      <span class="urgency-dot ${urgencyClass(l.urgency)}"></span>
+      <span class="listing-type-pill ${l.type === 'HAVE' ? 'pill-have' : 'pill-need'}">
+        ${l.type === 'HAVE' ? '✦ HAVE' : '⬡ NEED'}
+      </span>
+      <div class="listing-item-name">${l.item}</div>
+      <div class="listing-qty">Qty: ${l.qty}${l.condition ? ' · ' + l.condition : ''}</div>
+      <div class="listing-footer">
+        <span class="listing-org">${l.orgType} · ${l.org}</span>
+        <span class="listing-dist">📍 ${l.dist} km</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterListings(filter, el) {
+  document.querySelectorAll('.listings-section .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderListings(filter);
+}
+
+function selectListing(id) {
+  const l = LISTINGS_SEED.find(x => x.id === id);
+  if (!l) return;
+  showToast('info', l.item, `${l.orgType}: ${l.org} · ${l.qty} · ${l.dist} km away`);
+}
+
+// ============================================================
+//   RENDER: AI TEMPLATES
+// ============================================================
+
+function renderTemplates() {
+  const container = document.getElementById('templateList');
+  container.innerHTML = TEMPLATES.map((t, i) => `
+    <div class="template-item" onclick="useTemplate(${i})">
+      <div class="template-icon">${t.icon}</div>
+      ${t.label}
+    </div>
+  `).join('');
+}
+
+function useTemplate(idx) {
+  const t = TEMPLATES[idx];
+  document.getElementById('msgInput').value = t.text;
+  document.getElementById('msgInput').focus();
+  showToast('info', 'Template loaded', `"${t.label}" template inserted. Edit placeholders before sending.`);
+}
+
+// ============================================================
+//   MESSAGING
+// ============================================================
+
+function sendMessage() {
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const thread = document.getElementById('msgThread');
+  const time = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble outbound';
+  bubble.innerHTML = `${text}<div class="msg-meta">You · ${time}</div>`;
+  thread.appendChild(bubble);
+  thread.scrollTop = thread.scrollHeight;
+  input.value = '';
+}
+
+// ============================================================
+//   MAGIC AI SUBMIT FLOW
+// ============================================================
+
+const PROC_STAGES = [
+  { id: 'step-parse', label: 'Parsing natural language...', pct: 20 },
+  { id: 'step-extract', label: 'Extracting parameters with Groq...', pct: 45 },
+  { id: 'step-geo', label: 'Running geolocation scan...', pct: 65 },
+  { id: 'step-match', label: 'Computing match scores...', pct: 85 },
+  { id: 'step-notify', label: 'Dispatching push notifications...', pct: 100 },
+];
+
+async function handleSubmit() {
+  const text = document.getElementById('magicInput').value.trim();
+  if (!text) { showToast('warn', 'Input required', 'Please describe your resource need or surplus first.'); return; }
+
+  const lat = parseFloat(document.getElementById('latInput').value) || 19.0760;
+  const lng = parseFloat(document.getElementById('lngInput').value) || 72.8777;
+  userLat = lat; userLng = lng;
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  document.getElementById('submitBtnText').textContent = 'Processing...';
+  document.getElementById('processingZone').classList.add('active');
+  document.getElementById('extractedCard').classList.remove('active');
+
+  PROC_STAGES.forEach(s => {
+    const el = document.getElementById(s.id);
+    el.classList.remove('done', 'active');
+  });
+
+  for (let i = 0; i < PROC_STAGES.length; i++) {
+    const stage = PROC_STAGES[i];
+    document.getElementById('procStage').textContent = stage.label;
+    document.getElementById('procPct').textContent = `${stage.pct}%`;
+    document.getElementById('procBarFill').style.width = `${stage.pct}%`;
+
+    if (i > 0) document.getElementById(PROC_STAGES[i-1].id).classList.replace('active', 'done');
+    document.getElementById(stage.id).classList.add('active');
+
+    await new Promise(r => setTimeout(r, i === 1 ? 1400 : 600));
+
+    if (i === 1) {
+      const extracted = await callGroqExtract(text, lat, lng);
+      renderExtractedParams(extracted);
+    }
+  }
+
+  document.getElementById(PROC_STAGES[PROC_STAGES.length-1].id).classList.replace('active', 'done');
+  document.getElementById('procStage').textContent = '✓ Processing complete';
+
+  btn.disabled = false;
+  document.getElementById('submitBtnText').textContent = '⚡ Analyse & Match with AI';
+
+  showToast('match', '✓ Match Found', '3 high-confidence matches added to your radar. Review and connect.');
+  renderMatchGrid(currentMatchFilter);
+  triggerPushNotification('NeedBridge AI — Match Alert', '3 resource matches found within 10km. Open NeedBridge to review.');
+
+  // Add the new listing to the seed
+  addNewListing(text, lat, lng);
+  renderListings(currentListingFilter);
+  updateTickers();
+}
+
+async function callGroqExtract(text, lat, lng) {
+  // Groq API via backend proxy — calls Groq with llama3-70b-8192 in JSON mode
+  // In production this hits: POST /api/extract  { text, lat, lng }
+  // For this demo build, we simulate the Groq response with deterministic logic
+
+  const lower = text.toLowerCase();
+
+  const typeKeywords = {
+    need: ['need', 'require', 'urgently', 'want', 'short', 'empty', 'lack', 'chahiye', 'zarurat', 'zaroorat', 'nahi hai'],
+    have: ['have', 'surplus', 'excess', 'donate', 'give', 'extra', 'available', 'hai', 'dene', 'available'],
+  };
+
+  let listingType = 'NEED';
+  if (typeKeywords.have.some(k => lower.includes(k))) listingType = 'HAVE';
+
+  const catMap = {
+    medicine: ['medicine', 'tablet', 'paracetamol', 'injection', 'syrup', 'strip', 'capsule', 'dawai', 'dawa'],
+    food: ['food', 'ration', 'rice', 'wheat', 'grain', 'flour', 'milk', 'khana', 'anaj', 'chawal'],
+    clothing: ['blanket', 'clothes', 'jacket', 'coat', 'raincoat', 'kapde', 'kambal', 'sweater', 'uniform'],
+    education: ['book', 'notebook', 'pencil', 'school', 'stationery', 'kitaab', 'copy', 'textbook'],
+    medical: ['wheelchair', 'crutch', 'hospital', 'bed', 'equipment', 'gloves', 'mask', 'sanitizer'],
+    shelter: ['tarpaulin', 'tent', 'shelter', 'tarp', 'plastic sheet', 'tents'],
+    sanitation: ['water', 'filter', 'hygiene', 'soap', 'toilet', 'pani', 'sauchai'],
+    furniture: ['chair', 'table', 'desk', 'shelf', 'furniture', 'almirah'],
+  };
+
+  let category = 'general';
+  for (const [cat, kw] of Object.entries(catMap)) {
+    if (kw.some(k => lower.includes(k))) { category = cat; break; }
+  }
+
+  const qtyMatch = text.match(/\b(\d[\d,]*)\s*(unit|piece|kg|litre|liter|strip|book|blanket|set|kit|pair|box|pack|sheet|bag|bottle|nos|nos\.?|number)s?\b/i);
+  const qty = qtyMatch ? `${qtyMatch[1]} ${qtyMatch[2]}s` : 'Qty not specified';
+
+  const conditionWords = ['good', 'new', 'used', 'excellent', 'fair', 'sealed', 'clean', 'usable'];
+  const condition = conditionWords.find(w => lower.includes(w)) || 'Not specified';
+
+  let urgency = 3;
+  if (/urgent|immediately|asap|critical|emergency|critical/i.test(text)) urgency = 5;
+  else if (/soon|quick|fast/i.test(text)) urgency = 4;
+  else if (/whenever|at leisure|no rush/i.test(text)) urgency = 1;
+
+  const itemMatch = text.match(/\b(\d+)\s+(\w[\w\s]{2,30}?)\s+(for|to|in|at|of|from)/i);
+  const item = itemMatch ? itemMatch[2].trim() : category !== 'general' ? category + ' supplies' : 'Unspecified item';
+
+  return { type: listingType, category, item, qty, condition, urgency, lat, lng };
+}
+
+function renderExtractedParams(data) {
+  const grid = document.getElementById('paramGrid');
+  const urgencyPips = Array.from({length:5}).map((_,i) =>
+    `<div class="urgency-pip${i < data.urgency ? ' lit' : ''}"></div>`
+  ).join('');
+
+  grid.innerHTML = `
+    <div class="param-item">
+      <div class="param-key">Type</div>
+      <div class="param-val" style="color:${data.type==='NEED'?'var(--amber-400)':'var(--emerald-400)'}">${data.type}</div>
+    </div>
+    <div class="param-item">
+      <div class="param-key">Category</div>
+      <div class="param-val">${data.category}</div>
+    </div>
+    <div class="param-item">
+      <div class="param-key">Item</div>
+      <div class="param-val">${data.item}</div>
+    </div>
+    <div class="param-item">
+      <div class="param-key">Quantity</div>
+      <div class="param-val">${data.qty}</div>
+    </div>
+    <div class="param-item">
+      <div class="param-key">Condition</div>
+      <div class="param-val">${data.condition}</div>
+    </div>
+    <div class="param-item">
+      <div class="param-key">Urgency</div>
+      <div class="param-val">
+        <div class="urgency-bar">${urgencyPips}</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('extractedCard').classList.add('active');
+}
+
+function addNewListing(text, lat, lng) {
+  const lower = text.toLowerCase();
+  const isNeed = /need|require|want|short|chahiye|zarurat/i.test(text);
+  const id = 'l' + Date.now();
+  const activeRole = document.querySelector('.role-tab.active')?.dataset.role || 'NGO';
+
+  LISTINGS_SEED.unshift({
+    id, type: isNeed ? 'NEED' : 'HAVE',
+    org: 'Your Organisation', orgType: activeRole,
+    item: text.slice(0, 48) + (text.length > 48 ? '...' : ''),
+    category: 'general', qty: 'See description',
+    condition: isNeed ? null : 'As described',
+    lat, lng, urgency: 3, dist: null
+  });
+}
+
+// ============================================================
+//   PUSH NOTIFICATIONS
+// ============================================================
+
+async function triggerPushNotification(title, body) {
+  if ('Notification' in window) {
+    if (Notification.permission === 'default') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+    }
+    if (Notification.permission === 'granted') {
+      const reg = window.__swRegistration;
+      if (reg) {
+        try {
+          await reg.showNotification(title, { body, tag: 'needbridge', icon: '' });
+        } catch (_) {
+          new Notification(title, { body });
+        }
+      } else {
+        new Notification(title, { body });
+      }
+    }
+  }
+}
+
+// ============================================================
+//   TOAST SYSTEM
+// ============================================================
+
+function showToast(type, title, body, duration = 5000) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+
+  const iconMap = { match: '✓', info: '📡', warn: '⚠️' };
+
+  toast.innerHTML = `
+    <div class="toast-icon ${type}">${iconMap[type] || '●'}</div>
+    <div>
+      <div class="toast-title">${title}</div>
+      <div class="toast-body">${body}</div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('exiting');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ============================================================
+//   LIVE TICKER UPDATES
+// ============================================================
+
+function updateTickers() {
+  const listings = parseInt(document.getElementById('ticker-listings').textContent.replace(/,/g, '')) + 1;
+  animateCount('ticker-listings', listings);
+  animateCount('hero-listings', listings);
+
+  const matched = parseInt(document.getElementById('ticker-matched').textContent) + 3;
+  animateCount('ticker-matched', matched);
+  animateCount('hero-matched', matched);
+}
+
+function animateCount(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = parseInt(el.textContent.replace(/[^0-9]/g, '')) || 0;
+  const duration = 600;
+  const startTime = performance.now();
+  const isFormatted = el.textContent.includes(',');
+
+  function tick(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const val = Math.round(start + (target - start) * eased);
+    el.textContent = isFormatted ? val.toLocaleString('en-IN') : val;
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function startTickerAnimation() {
+  setInterval(() => {
+    const orgs = parseInt(document.getElementById('ticker-orgs').textContent);
+    if (Math.random() > 0.7) {
+      animateCount('ticker-orgs', orgs + 1);
+      animateCount('hero-orgs', orgs + 1);
+    }
+  }, 12000);
+}
+
+// ============================================================
+//   ROLE TABS
+// ============================================================
+
+document.querySelectorAll('.role-tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+    const role = this.dataset.role;
+    const placeholders = {
+      NGO: "e.g. 'हमें बाढ़ पीड़ितों के लिए 100 कंबल चाहिए' or 'We urgently need 100 blankets for flood victims'",
+      Hospital: "e.g. 'We have surplus 500 surgical gloves size L, good condition. Available for collection'",
+      School: "e.g. 'Need 200 textbooks for Std 5-7 students urgently. Our school has 300 children with no books'",
+      'Donor / Corp': "e.g. 'We have 50 office chairs, 30 desks surplus from office renovation. Happy to donate to schools or NGOs'",
+    };
+    document.getElementById('magicInput').placeholder = placeholders[role] || placeholders['NGO'];
+  });
+});
+
+// ============================================================
+//   KEYBOARD SHORTCUT
+// ============================================================
+
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    const focused = document.activeElement;
+    if (focused && focused.id === 'magicInput') handleSubmit();
+  }
+});
+
+// ============================================================
+//   INIT
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderMatchGrid();
+  renderListings();
+  renderTemplates();
+  startTickerAnimation();
+
+  // Initial welcome toast after short delay
+  setTimeout(() => {
+    showToast('info', 'NeedBridge AI Ready', '24 active listings near Mumbai. Type your need or surplus to begin.', 6000);
+  }, 1500);
+
+  // Simulate a background match arriving after 8 seconds
+  setTimeout(() => {
+    MATCH_SEED.unshift({
+      id: 'm_live', org: 'Vasai Flood Relief Camp', orgType: 'NGO',
+      score: 91, item: '200 blankets', need: 'Cyclone relief',
+      dist: '1.8 km', status: 'high', lat: 19.3667, lng: 72.8333
+    });
+    renderMatchGrid(currentMatchFilter);
+    showToast('match', '🔴 Live Match', 'Vasai Flood Relief Camp (91% match · 1.8 km) needs what you have. Review now.');
+    triggerPushNotification('NeedBridge — Live Match', 'Vasai Flood Relief Camp matched 91% with your listing. Open app to connect.');
+  }, 8000);
+});
+</script>
+
+</body>
+</html>

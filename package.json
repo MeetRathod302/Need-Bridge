@@ -1,0 +1,26 @@
+{
+  "name": "needbridge-ai",
+  "version": "1.0.0",
+  "description": "NeedBridge AI — Resource Redistribution Supply Chain Engine",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "lint": "eslint server/ --ext .js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "groq-sdk": "^0.7.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}
